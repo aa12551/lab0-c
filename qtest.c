@@ -817,7 +817,6 @@ static bool do_merge(int argc, char *argv[])
             q_free(ctx->q);
             free(ctx);
         }
-
         chain.head.prev = &current->chain;
         current->chain.next = &chain.head;
     }

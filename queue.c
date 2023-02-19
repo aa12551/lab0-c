@@ -35,8 +35,10 @@ void q_free(struct list_head *l)
 /* Insert an element at head of queue */
 bool q_insert_head(struct list_head *head, char *s)
 {
+    if (!head)
+        return false;
     element_t *newnode = malloc(sizeof(element_t));
-    if (!newnode || head == NULL)
+    if (!newnode)
         return false;
     newnode->value = malloc(sizeof(char) * (strlen(s) + 1));
     if (!newnode->value) {
@@ -51,8 +53,10 @@ bool q_insert_head(struct list_head *head, char *s)
 /* Insert an element at tail of queue */
 bool q_insert_tail(struct list_head *head, char *s)
 {
+    if (!head)
+        return false;
     element_t *newnode = malloc(sizeof(element_t));
-    if (!newnode || head == NULL)
+    if (!newnode)
         return false;
     newnode->value = malloc(sizeof(char) * (strlen(s) + 1));
     if (!newnode->value) {
@@ -101,7 +105,7 @@ int q_size(struct list_head *head)
 /* Delete the middle node in queue */
 bool q_delete_mid(struct list_head *head)
 {
-    if (!head)
+    if (!head || list_empty(head))
         return false;
     struct list_head *slow = head->next, *fast = head->next;
     while (fast != head && fast->next != head) {
@@ -116,14 +120,49 @@ bool q_delete_mid(struct list_head *head)
 /* Delete all nodes that have duplicate string */
 bool q_delete_dup(struct list_head *head)
 {
-    // https://leetcode.com/problems/remove-duplicates-from-sorted-list-ii/
+    if (!head)
+        return false;
+    if (list_empty(head))
+        return true;
+    q_sort(head);
+    element_t *entry, *safe;
+    bool delete = false;
+    list_for_each_entry_safe (entry, safe, head, list) {
+        if (&safe->list == head) {
+            if (delete) {
+                list_del(&entry->list);
+                q_release_element(entry);
+            }
+            return true;
+        }
+        if (strcmp(entry->value, safe->value) == 0) {
+            list_del(&entry->list);
+            q_release_element(entry);
+            delete = true;
+            continue;
+        }
+        if (delete) {
+            list_del(&entry->list);
+            q_release_element(entry);
+            delete = false;
+        }
+    }
     return true;
 }
 
 /* Swap every two adjacent nodes */
 void q_swap(struct list_head *head)
 {
-    // https://leetcode.com/problems/swap-nodes-in-pairs/
+    if (!head)
+        return;
+    struct list_head *iterator = head->next;
+    while (iterator != head && iterator->next != head) {
+        char *temp = list_entry(iterator, element_t, list)->value;
+        list_entry(iterator, element_t, list)->value =
+            list_entry(iterator->next, element_t, list)->value;
+        list_entry(iterator->next, element_t, list)->value = temp;
+        iterator = iterator->next->next;
+    }
 }
 
 void q_reverse_pointer(struct list_head *head)
@@ -163,20 +202,166 @@ void q_reverseK(struct list_head *head, int k)
     head->next = temp;
 }
 
+/* Function to split the doubly linked list into two halves */
+void splitList(struct list_head *source,
+               struct list_head **frontRef,
+               struct list_head **backRef)
+{
+    struct list_head *slowPtr = source;
+    struct list_head *fastPtr = source->next;
+
+    /* Move fastPtr by two and slowPtr by one */
+    while (fastPtr != NULL) {
+        fastPtr = fastPtr->next;
+        if (fastPtr != NULL) {
+            slowPtr = slowPtr->next;
+            fastPtr = fastPtr->next;
+        }
+    }
+
+    /* Set the front and back halves of the list */
+    *frontRef = source;
+    *backRef = slowPtr->next;
+    (*backRef)->prev = NULL;
+    slowPtr->next = NULL;
+}
+
+/* Function to merge two sorted doubly linked lists */
+struct list_head *mergeLists(struct list_head *a, struct list_head *b)
+{
+    struct list_head *result = NULL;
+
+    /* Base case */
+    if (a == NULL) {
+        return b;
+    } else if (b == NULL) {
+        return a;
+    }
+    char *s1 = list_entry(a, element_t, list)->value;
+    char *s2 = list_entry(b, element_t, list)->value;
+    /* Recursively merge the lists */
+    if (strcmp(s1, s2) < 0) {
+        result = a;
+        result->next = mergeLists(a->next, b);
+        result->next->prev = result;
+    } else {
+        result = b;
+        result->next = mergeLists(a, b->next);
+        result->next->prev = result;
+    }
+
+    return result;
+}
+
+/* Function to perform merge sort on a doubly linked list */
+void sort(struct list_head **headRef)
+{
+    struct list_head *head = *headRef;
+    struct list_head *a = NULL;
+    struct list_head *b = NULL;
+
+    /* Base case: if the list is empty or has only one element */
+    if (head == NULL || head->next == NULL) {
+        return;
+    }
+
+    /* Split the list into two halves */
+    splitList(head, &a, &b);
+
+    /* Recursively sort the two halves */
+    sort(&a);
+    sort(&b);
+
+    /* Merge the sorted halves */
+    *headRef = mergeLists(a, b);
+}
+
 /* Sort elements of queue in ascending order */
-void q_sort(struct list_head *head) {}
+void q_sort(struct list_head *head)
+{
+    head->prev->next = NULL;
+    sort(&(head->next));
+    struct list_head *iter = head;
+    while (iter->next != NULL) {
+        iter = iter->next;
+    }
+    head->next->prev = head;
+    head->prev = iter;
+    iter->next = head;
+}
 
 /* Remove every node which has a node with a strictly greater value anywhere to
  * the right side of it */
 int q_descend(struct list_head *head)
 {
     // https://leetcode.com/problems/remove-nodes-from-linked-list/
-    return 0;
+    if (!head)
+        return 0;
+    struct list_head *iter = head->prev->prev;
+    char *max = list_entry(head->prev, element_t, list)->value;
+    int count = 1;
+    while (iter != head) {
+        char *s = list_entry(iter, element_t, list)->value;
+        if (strcmp(max, s) > 0)
+            list_del(iter);
+        else {
+            max = s;
+            count++;
+        }
+        iter = iter->prev;
+    }
+    return count;
+}
+
+void mergetwolists(struct list_head **l1, struct list_head **l2)
+{
+    struct list_head *l1_iter = (*l1)->next;
+    struct list_head *l2_iter = (*l2)->next;
+    struct list_head *iter = *l1;
+    while (l1_iter != *l1 && l2_iter != *l2) {
+        char *s1 = list_entry(l1_iter, element_t, list)->value;
+        char *s2 = list_entry(l2_iter, element_t, list)->value;
+        if (strcmp(s1, s2) > 0) {
+            iter->next = l2_iter;
+            l2_iter->prev = iter;
+            l2_iter = l2_iter->next;
+            iter = iter->next;
+        } else {
+            iter->next = l1_iter;
+            l1_iter->prev = iter;
+            l1_iter = l1_iter->next;
+            iter = iter->next;
+        }
+    }
+    if (l1_iter == *l1) {
+        iter->next = l2_iter;
+        l2_iter->prev = iter;
+        while (l2_iter->next != *l2)
+            l2_iter = l2_iter->next;
+        l2_iter->next = *l1;
+        (*l1)->prev = l2_iter;
+    }
+
+    if (l2_iter == *l2) {
+        iter->next = l1_iter;
+        l1_iter->prev = iter;
+    }
 }
 
 /* Merge all the queues into one sorted queue, which is in ascending order */
 int q_merge(struct list_head *head)
 {
     // https://leetcode.com/problems/merge-k-sorted-lists/
-    return 0;
+    if (!head)
+        return 0;
+
+    struct list_head *l1 = list_entry(head->next, queue_contex_t, chain)->q;
+    struct list_head *iter = head->next;
+    while (iter->next != head) {
+        struct list_head *l2 = list_entry(iter->next, queue_contex_t, chain)->q;
+        mergetwolists(&l1, &l2);
+        list_entry(iter->next, queue_contex_t, chain)->q = NULL;
+        iter = iter->next;
+    }
+    return q_size(l1);
 }
