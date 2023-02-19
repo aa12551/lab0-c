@@ -76,7 +76,10 @@ element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
     if (head == NULL || head->next == head)
         return NULL;
     element_t *removeNode = list_entry(head->next, element_t, list);
-    strncpy(sp, removeNode->value, bufsize);
+    size_t min = strlen(removeNode->value) + 1;
+    min = min > bufsize ? bufsize : min;
+    memcpy(sp, removeNode->value, min);
+    sp[min - 1] = '\0';
     list_del(head->next);
     return removeNode;
 }
@@ -87,7 +90,10 @@ element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
     if (head == NULL || head->prev == head)
         return NULL;
     element_t *removeNode = list_entry(head->prev, element_t, list);
-    strncpy(sp, removeNode->value, bufsize);
+    size_t min = strlen(removeNode->value) + 1;
+    min = min > bufsize ? bufsize : min;
+    memcpy(sp, removeNode->value, min);
+    sp[min - 1] = '\0';
     list_del(head->prev);
     return removeNode;
 }
@@ -122,33 +128,32 @@ bool q_delete_mid(struct list_head *head)
 /* Delete all nodes that have duplicate string */
 bool q_delete_dup(struct list_head *head)
 {
-    // https://leetcode.com/problems/remove-duplicates-from-sorted-list-ii/
-    if (!head || list_empty(head) || list_is_singular(head))
+    if (!head)
         return false;
-
-    struct list_head *curr = head->next, *next = curr->next;
-    bool key = false;
-
-    while (curr != head && next != head) {
-        element_t *curr_entry = list_entry(curr, element_t, list);
-        element_t *next_entry = list_entry(next, element_t, list);
-
-        while (next != head && !strcmp(curr_entry->value, next_entry->value)) {
-            list_del(next);
-            q_release_element(next_entry);
-            next = curr->next;
-            next_entry = list_entry(next, element_t, list);
-            key = true;
+    if (list_empty(head))
+        return true;
+    q_sort(head);
+    element_t *entry, *safe;
+    bool delete = false;
+    list_for_each_entry_safe (entry, safe, head, list) {
+        if (&safe->list == head) {
+            if (delete) {
+                list_del(&entry->list);
+                q_release_element(entry);
+            }
+            return true;
         }
-
-        if (key) {
-            list_del(curr);
-            q_release_element(curr_entry);
-            key = false;
+        if (strcmp(entry->value, safe->value) == 0) {
+            list_del(&entry->list);
+            q_release_element(entry);
+            delete = true;
+            continue;
         }
-
-        curr = next;
-        next = next->next;
+        if (delete) {
+            list_del(&entry->list);
+            q_release_element(entry);
+            delete = false;
+        }
     }
     return true;
 }
@@ -178,7 +183,6 @@ void q_reverse_pointer(struct list_head *head)
 /* Reverse elements in queue */
 void q_reverse(struct list_head *head)
 {
-    printf("enter\n");
     if (!head)
         return;
     struct list_head *iterator = head->prev;
@@ -194,16 +198,21 @@ void q_reverseK(struct list_head *head, int k)
 {
     if (!head)
         return;
+    struct list_head *local_head = head;
     struct list_head *iterator = head->next;
-    for (int i = 0; i < k; i++) {
-        q_reverse_pointer(iterator);
-        iterator = iterator->prev;
+    int len = q_size(head);
+    for (int j = 0; j < (len / k); j++) {
+        for (int i = 0; i < k; i++) {
+            q_reverse_pointer(iterator);
+            iterator = iterator->prev;
+        }
+        local_head->next->next = iterator;
+        iterator->prev->prev = local_head;
+        struct list_head *temp = iterator->prev;
+        iterator->prev = local_head->next;
+        local_head->next = temp;
+        local_head = iterator->prev;
     }
-    head->next->next = iterator;
-    iterator->prev->prev = head;
-    struct list_head *temp = iterator->prev;
-    iterator->prev = head->next;
-    head->next = temp;
 }
 
 /* Function to split the doubly linked list into two halves */
@@ -283,6 +292,8 @@ void sort(struct list_head **headRef)
 /* Sort elements of queue in ascending order */
 void q_sort(struct list_head *head)
 {
+    if (!head || head->next == head)
+        return;
     head->prev->next = NULL;
     sort(&(head->next));
     struct list_head *iter = head;
