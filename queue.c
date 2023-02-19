@@ -14,7 +14,7 @@
 /* Create an empty queue */
 struct list_head *q_new()
 {
-    struct list_head *head = malloc(sizeof(struct list_head));
+    struct list_head *head = malloc(sizeof(*head));
     if (!head)
         return NULL;
     INIT_LIST_HEAD(head);
@@ -28,7 +28,6 @@ void q_free(struct list_head *l)
         return;
     element_t *entry = NULL, *safe = NULL;
     list_for_each_entry_safe (entry, safe, l, list) {
-        list_del(&entry->list);
         q_release_element(entry);
     }
     free(l);
@@ -37,17 +36,19 @@ void q_free(struct list_head *l)
 /* Insert an element at head of queue */
 bool q_insert_head(struct list_head *head, char *s)
 {
-    if (!head)
+    if (!head || !s)
         return false;
-    element_t *newnode = malloc(sizeof(element_t));
-    if (!newnode)
+    size_t s_len = strlen(s) + 1;
+    s_len = (s_len > 1024) ? 1024 : s_len;
+    element_t *newnode;
+    if (!(newnode = malloc(sizeof(element_t))))
         return false;
-    newnode->value = malloc(sizeof(char) * (strlen(s) + 1));
-    if (!newnode->value) {
+    if (!(newnode->value = malloc(s_len + 1))) {
         free(newnode);
         return false;
     }
-    memcpy(newnode->value, s, strlen(s) + 1);
+    memcpy(newnode->value, s, s_len);
+    newnode->value[s_len - 1] = '\0';
     list_add(&newnode->list, head);
     return true;
 }
@@ -55,17 +56,19 @@ bool q_insert_head(struct list_head *head, char *s)
 /* Insert an element at tail of queue */
 bool q_insert_tail(struct list_head *head, char *s)
 {
-    if (!head)
+    if (!head || !s)
         return false;
-    element_t *newnode = malloc(sizeof(element_t));
-    if (!newnode)
+    size_t s_len = strlen(s) + 1;
+    s_len = (s_len > 1024) ? 1024 : s_len;
+    element_t *newnode;
+    if (!(newnode = malloc(sizeof(element_t))))
         return false;
-    newnode->value = malloc(sizeof(char) * (strlen(s) + 1));
-    if (!newnode->value) {
+    if (!(newnode->value = malloc(s_len + 1))) {
         free(newnode);
         return false;
     }
-    memcpy(newnode->value, s, strlen(s) + 1);
+    memcpy(newnode->value, s, s_len);
+    newnode->value[s_len - 1] = '\0';
     list_add_tail(&newnode->list, head);
     return true;
 }
@@ -73,13 +76,15 @@ bool q_insert_tail(struct list_head *head, char *s)
 /* Remove an element from head of queue */
 element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 {
-    if (head == NULL || head->next == head)
+    if (!head || list_empty(head))
         return NULL;
     element_t *removeNode = list_entry(head->next, element_t, list);
-    size_t min = strlen(removeNode->value) + 1;
-    min = min > bufsize ? bufsize : min;
-    memcpy(sp, removeNode->value, min);
-    sp[min - 1] = '\0';
+    size_t len = strlen(removeNode->value) + 1;
+    len = (len > bufsize) ? bufsize : len;
+    if (sp) {
+        memcpy(sp, removeNode->value, len);
+        sp[len - 1] = '\0';
+    }
     list_del(head->next);
     return removeNode;
 }
@@ -87,13 +92,15 @@ element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 /* Remove an element from tail of queue */
 element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
 {
-    if (head == NULL || head->prev == head)
+    if (!head || list_empty(head))
         return NULL;
     element_t *removeNode = list_entry(head->prev, element_t, list);
-    size_t min = strlen(removeNode->value) + 1;
-    min = min > bufsize ? bufsize : min;
-    memcpy(sp, removeNode->value, min);
-    sp[min - 1] = '\0';
+    size_t len = strlen(removeNode->value) + 1;
+    len = (len > bufsize) ? bufsize : len;
+    if (sp) {
+        memcpy(sp, removeNode->value, len);
+        sp[len - 1] = '\0';
+    }
     list_del(head->prev);
     return removeNode;
 }
