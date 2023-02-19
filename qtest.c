@@ -774,7 +774,6 @@ static bool do_reverseK(int argc, char *argv[])
         report(1, "Invalid number of arguments for reverseK");
         return false;
     }
-
     set_noallocate_mode(true);
     if (exception_setup(true))
         q_reverseK(current->q, k);
