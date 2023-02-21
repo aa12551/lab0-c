@@ -247,10 +247,8 @@ void mergetwolists(struct list_head **l1, struct list_head **l2)
     if (l1_iter == *l1) {
         iter->next = l2_iter;
         l2_iter->prev = iter;
-        while (l2_iter->next != *l2)
-            l2_iter = l2_iter->next;
-        l2_iter->next = *l1;
-        (*l1)->prev = l2_iter;
+        (*l2)->prev->next = *l1;
+        (*l1)->prev = (*l2)->prev;
     }
 
     if (l2_iter == *l2) {
